@@ -1,0 +1,25 @@
+import type { ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
+
+export function EmptyState({
+  icon: Icon,
+  title,
+  description,
+  action,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-surface-muted px-6 py-14 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-light text-brand">
+        <Icon size={22} />
+      </div>
+      <h3 className="text-base font-semibold text-text-primary">{title}</h3>
+      <p className="max-w-sm text-sm text-text-secondary">{description}</p>
+      {action}
+    </div>
+  );
+}
