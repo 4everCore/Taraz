@@ -22,6 +22,26 @@ export async function createGoalEntry(
     throw new AppError("مبلغ برداشت نمی‌تواند بیشتر از موجودی هدف باشد");
   }
 
+  // If the goal is linked to an account, a movement MUST create a real transaction,
+  // otherwise the goal balance and the account balance drift apart.
+  if (goal.accountId) {
+    const goalAccountRows = await db
+      .select({ id: financialAccounts.id, userId: financialAccounts.userId, currency: financialAccounts.currency })
+      .from(financialAccounts)
+      .where(eq(financialAccounts.id, goal.accountId))
+      .limit(1);
+    const goalAccount = goalAccountRows[0];
+    if (!goalAccount || goalAccount.userId !== userId) {
+      throw new AppError("حساب متصل به هدف معتبر نیست");
+    }
+    if (goalAccount.currency !== goal.currency) {
+      throw new AppError("واحد پول حساب هدف با واحد پول هدف همخوانی ندارد");
+    }
+    if (!input.fromAccountId) {
+      throw new AppError("برای ثبت تراکنش، حساب مبدأ/مقصد الزامی است");
+    }
+  }
+
   return db.transaction(async (tx) => {
     let linkedTransactionId: string | null = null;
 
@@ -32,9 +52,15 @@ export async function createGoalEntry(
         .where(and(eq(financialAccounts.id, input.fromAccountId), eq(financialAccounts.userId, userId)))
         .limit(1);
       if (!accountRows[0]) throw new AppError("حساب انتخاب‌شده معتبر نیست");
+      if (accountRows[0].currency !== goal.currency) {
+        throw new AppError("واحد پول حساب انتخاب‌شده با واحد پول هدف همخوانی ندارد");
+      }
 
       const sourceAccountId = input.type === "deposit" ? input.fromAccountId : goal.accountId;
       const destinationAccountId = input.type === "deposit" ? goal.accountId : input.fromAccountId;
+      if (sourceAccountId === destinationAccountId) {
+        throw new AppError("حساب مبدأ و مقصد نمی‌توانند یکسان باشند");
+      }
 
       const [transferTx] = await tx
         .insert(transactions)

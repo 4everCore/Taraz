@@ -1,8 +1,9 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { debts, debtPayments, transactions, financialAccounts } from "@/db/schema";
+import { debts, debtPayments, transactions, financialAccounts, categories } from "@/db/schema";
 import { AppError } from "@/lib/errors";
 import { parseAmountToMinor } from "@/lib/money";
+import { getAccountBalanceMinor } from "@/lib/finance/accounts";
 import { recordAuditLog } from "@/lib/audit";
 
 export async function recordDebtPayment(
@@ -21,6 +22,34 @@ export async function recordDebtPayment(
   const remaining = debt.totalAmountMinor - debt.settledAmountMinor;
   if (amountMinor > remaining) {
     throw new AppError("مبلغ پرداخت نمی‌تواند بیشتر از مانده بدهی باشد");
+  }
+
+  if (input.categoryId) {
+    const categoryRows = await db
+      .select({ id: categories.id, userId: categories.userId })
+      .from(categories)
+      .where(eq(categories.id, input.categoryId))
+      .limit(1);
+    const category = categoryRows[0];
+    if (!category || (category.userId !== null && category.userId !== userId)) {
+      throw new AppError("دسته‌بندی انتخاب‌شده معتبر نیست");
+    }
+  }
+
+  if (input.accountId && debt.direction === "owe") {
+    const accountRows = await db
+      .select({ id: financialAccounts.id, allowNegativeBalance: financialAccounts.allowNegativeBalance })
+      .from(financialAccounts)
+      .where(and(eq(financialAccounts.id, input.accountId), eq(financialAccounts.userId, userId)))
+      .limit(1);
+    const account = accountRows[0];
+    if (!account) throw new AppError("حساب انتخاب‌شده معتبر نیست");
+    if (!account.allowNegativeBalance) {
+      const balance = await getAccountBalanceMinor(userId, input.accountId);
+      if (balance !== null && balance - amountMinor < 0n) {
+        throw new AppError("این پرداخت باعث منفی‌شدن موجودی حساب می‌شود");
+      }
+    }
   }
 
   return db.transaction(async (tx) => {

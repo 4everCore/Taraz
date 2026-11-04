@@ -113,10 +113,12 @@ export async function getMonthlyComparison(
   userId: string,
   monthsBack: number,
   currency: CurrencyCode,
+  timeZone = "UTC",
 ): Promise<{ month: string; incomeMinor: bigint; expenseMinor: bigint }[]> {
+  // Bucket months in the user's timezone instead of the database timezone.
   const result = await db.execute(sql`
     SELECT
-      to_char(date_trunc('month', occurred_at), 'YYYY-MM') AS month,
+      to_char(date_trunc('month', occurred_at AT TIME ZONE ${timeZone}), 'YYYY-MM') AS month,
       COALESCE(SUM(CASE WHEN type = 'income' THEN amount_minor ELSE 0 END), 0)::bigint AS income_minor,
       COALESCE(SUM(CASE WHEN type = 'expense' THEN amount_minor ELSE 0 END), 0)::bigint AS expense_minor
     FROM transactions
@@ -124,7 +126,7 @@ export async function getMonthlyComparison(
       AND status = 'completed'
       AND currency = ${currency}
       AND deleted_at IS NULL
-      AND occurred_at >= date_trunc('month', now()) - (${monthsBack} || ' months')::interval
+      AND occurred_at >= (date_trunc('month', now() AT TIME ZONE ${timeZone}) AT TIME ZONE ${timeZone}) - (${monthsBack} || ' months')::interval
     GROUP BY month
     ORDER BY month ASC
   `);
