@@ -2,9 +2,9 @@
 
 import { randomBytes, createHash } from "crypto";
 import { redirect } from "next/navigation";
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { users, passwordResetTokens } from "@/db/schema";
+import { users, passwordResetTokens, sessions } from "@/db/schema";
 import { DEFAULT_CATEGORIES } from "@/lib/categories";
 import { categories } from "@/db/schema";
 import { hashPassword, verifyPassword, passwordStrengthIssues } from "@/lib/password";
@@ -157,6 +157,15 @@ export async function forgotPasswordAction(
   const user = rows[0];
 
   if (user && !user.deletedAt) {
+    // Rate-limit reset requests per account to prevent email bombing.
+    const since = new Date(Date.now() - 15 * 60 * 1000);
+    const recentTokens = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(passwordResetTokens)
+      .where(and(eq(passwordResetTokens.userId, user.id), gt(passwordResetTokens.createdAt, since)));
+    if (Number(recentTokens[0]?.count ?? 0) >= 3) {
+      return okResult(null);
+    }
     const rawToken = randomBytes(32).toString("hex");
     const tokenHash = createHash("sha256").update(rawToken).digest("hex");
     await db.insert(passwordResetTokens).values({

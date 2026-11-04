@@ -55,10 +55,16 @@ function computeHypotheticalDrop(type: TransactionInput["type"]): boolean {
 
 export async function createTransaction(userId: string, input: TransactionInput) {
   const account = await assertAccountOwnership(userId, input.accountId);
+  if (input.currency !== account.currency) {
+    throw new AppError("واحد پول تراکنش با واحد پول حساب همخوانی ندارد");
+  }
   if (input.type === "transfer") {
     if (!input.toAccountId) throw new AppError("حساب مقصد الزامی است");
     if (input.toAccountId === input.accountId) throw new AppError("حساب مبدا و مقصد نمی‌توانند یکسان باشند");
-    await assertAccountOwnership(userId, input.toAccountId);
+    const toAccount = await assertAccountOwnership(userId, input.toAccountId);
+    if (input.currency !== toAccount.currency) {
+      throw new AppError("واحد پول تراکنش با واحد پول حساب مقصد همخوانی ندارد");
+    }
   }
   if ((input.type === "income" || input.type === "expense") && input.categoryId) {
     await assertCategoryOwnership(userId, input.categoryId);
@@ -121,10 +127,16 @@ export async function updateTransaction(userId: string, transactionId: string, i
   }
 
   const account = await assertAccountOwnership(userId, input.accountId);
+  if (input.currency !== account.currency) {
+    throw new AppError("واحد پول تراکنش با واحد پول حساب همخوانی ندارد");
+  }
   if (input.type === "transfer") {
     if (!input.toAccountId) throw new AppError("حساب مقصد الزامی است");
     if (input.toAccountId === input.accountId) throw new AppError("حساب مبدا و مقصد نمی‌توانند یکسان باشند");
-    await assertAccountOwnership(userId, input.toAccountId);
+    const toAccount = await assertAccountOwnership(userId, input.toAccountId);
+    if (input.currency !== toAccount.currency) {
+      throw new AppError("واحد پول تراکنش با واحد پول حساب مقصد همخوانی ندارد");
+    }
   }
   if ((input.type === "income" || input.type === "expense") && input.categoryId) {
     await assertCategoryOwnership(userId, input.categoryId);

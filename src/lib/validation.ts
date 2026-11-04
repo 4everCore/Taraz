@@ -71,16 +71,22 @@ export const transactionSchema = z
     }
   });
 
-export const budgetSchema = z.object({
-  name: z.string().trim().min(1, "نام بودجه الزامی است").max(80),
-  categoryId: z.string().uuid().optional().nullable(),
-  period: z.enum(["weekly", "monthly", "custom"]),
-  startDate: z.string().trim().min(1),
-  endDate: z.string().trim().min(1),
-  limitAmount: z.string().trim().min(1, "سقف بودجه الزامی است"),
-  currency: currencyEnum,
-  alertThresholdPercent: z.coerce.number().int().min(1).max(100).default(80),
-});
+export const budgetSchema = z
+  .object({
+    name: z.string().trim().min(1, "نام بودجه الزامی است").max(80),
+    categoryId: z.string().uuid().optional().nullable(),
+    period: z.enum(["weekly", "monthly", "custom"]),
+    startDate: z.string().trim().min(1),
+    endDate: z.string().trim().min(1),
+    limitAmount: z.string().trim().min(1, "سقف بودجه الزامی است"),
+    currency: currencyEnum,
+    alertThresholdPercent: z.coerce.number().int().min(1).max(100).default(80),
+  })
+  .superRefine((data, ctx) => {
+    if (data.startDate > data.endDate) {
+      ctx.addIssue({ code: "custom", message: "تاریخ شروع نمی‌تواند بعد از تاریخ پایان باشد", path: ["endDate"] });
+    }
+  });
 
 export const recurringSchema = z.object({
   type: z.enum(["income", "expense", "transfer"]),
