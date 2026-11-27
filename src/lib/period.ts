@@ -46,8 +46,10 @@ export function startOfDayInZone(timeZone: string, year: number, month: number, 
 }
 
 export function endOfDayInZone(timeZone: string, year: number, month: number, day: number): Date {
-  const start = startOfDayInZone(timeZone, year, month, day);
-  return new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1);
+  // Compute the start of the NEXT day in the zone and subtract 1ms, so DST
+  // transition days (23h/25h days) are handled correctly.
+  const next = addDaysToDateOnly({ year, month, day }, 1);
+  return new Date(startOfDayInZone(timeZone, next.year, next.month, next.day).getTime() - 1);
 }
 
 export function parseDateOnly(value: string): { year: number; month: number; day: number } {

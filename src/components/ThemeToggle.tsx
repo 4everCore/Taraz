@@ -1,20 +1,29 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useSyncExternalStore, useTransition } from "react";
 import { Moon, Sun } from "lucide-react";
 import { persistThemePreference } from "@/app/actions/theme";
 
-export function ThemeToggle() {
-  const [isDark, setIsDark] = useState(false);
-  const [, startTransition] = useTransition();
+function subscribeToTheme(callback: () => void) {
+  const observer = new MutationObserver(callback);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+  return () => observer.disconnect();
+}
 
-  useEffect(() => {
-    setIsDark(document.documentElement.classList.contains("dark"));
-  }, []);
+function getThemeSnapshot() {
+  return document.documentElement.classList.contains("dark");
+}
+
+function getServerThemeSnapshot() {
+  return false;
+}
+
+export function ThemeToggle() {
+  const isDark = useSyncExternalStore(subscribeToTheme, getThemeSnapshot, getServerThemeSnapshot);
+  const [, startTransition] = useTransition();
 
   function toggleTheme() {
     const nextIsDark = !isDark;
-    setIsDark(nextIsDark);
     document.documentElement.classList.toggle("dark", nextIsDark);
     const nextTheme = nextIsDark ? "dark" : "light";
     document.cookie = `taraz-theme=${nextTheme}; path=/; max-age=31536000; samesite=lax`;

@@ -3,6 +3,10 @@ import { db } from "@/db";
 import { recurringTransactions, recurringExecutionLogs, transactions } from "@/db/schema";
 import { recordAuditLog } from "@/lib/audit";
 
+function daysInMonth(year: number, month: number): number {
+  return new Date(year, month + 1, 0).getDate();
+}
+
 function addInterval(date: Date, frequency: string, intervalCount: number): Date {
   const next = new Date(date.getTime());
   if (frequency === "daily") {
@@ -10,9 +14,18 @@ function addInterval(date: Date, frequency: string, intervalCount: number): Date
   } else if (frequency === "weekly") {
     next.setDate(next.getDate() + 7 * intervalCount);
   } else if (frequency === "monthly") {
+    // Set day to 1 first so adding months never overflows into the next month
+    // (e.g. Jan 31 + 1 month must become the last day of February, not March 3).
+    const day = next.getDate();
+    next.setDate(1);
     next.setMonth(next.getMonth() + intervalCount);
+    next.setDate(Math.min(day, daysInMonth(next.getFullYear(), next.getMonth())));
   } else if (frequency === "yearly") {
+    // Same overflow guard for leap-day (Feb 29) schedules.
+    const day = next.getDate();
+    next.setDate(1);
     next.setFullYear(next.getFullYear() + intervalCount);
+    next.setDate(Math.min(day, daysInMonth(next.getFullYear(), next.getMonth())));
   }
   return next;
 }

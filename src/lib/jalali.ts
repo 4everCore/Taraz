@@ -1,4 +1,4 @@
-import { toJalaali, toGregorian, jalaaliMonthLength } from "jalaali-js";
+import { toJalaali, toGregorian } from "jalaali-js";
 
 const PERSIAN_MONTHS = [
   "فروردین",
@@ -48,8 +48,9 @@ export function formatJalaliDateTime(date: Date): string {
 export function currentJalaliMonthRange(reference: Date): { start: Date; end: Date } {
   const { year, month } = gregorianToJalaliParts(reference);
   const start = jalaliToGregorianDate(year, month, 1);
-  const length = jalaaliMonthLength(year, month);
-  const end = jalaliToGregorianDate(year, month, length, 23, 59);
+  const nextMonth = month === 12 ? { year: year + 1, month: 1 } : { year, month: month + 1 };
+  // End of month = start of next month minus 1ms (covers the whole last day, incl. 23:59:59).
+  const end = new Date(jalaliToGregorianDate(nextMonth.year, nextMonth.month, 1).getTime() - 1);
   return { start, end };
 }
 
